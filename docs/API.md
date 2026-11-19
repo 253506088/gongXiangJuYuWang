@@ -1,0 +1,51 @@
+# LinkWave protocol v1 / app 1.2
+
+## 1.3.0 本机原文件直接发送（最新规则）
+
+Node Windows bootstrap `capabilities.localFiles:true`（只在本机 admin 页面使用）。本机“选择文件”调用 `POST /api/pick-send-files {}` -> `{paths:[absolute file paths]}`，多选原文件；“选择文件夹”仍 POST pick-folder -> `{path}`。创建发送任务 `POST /api/local-transfers {paths:[absolute files or directories],targetId:'host:uuid'|'browserUuid'|'server'}` admin -> `{transfers:[{id,name,size,status:'queued',targetId,to,relativePath,localSource:true}],skipped:[{path,error}]}`。只读取文件元数据，保存原绝对路径、大小、mtime、inode，不复制、不读取整个文件、不上传本机；多个目录递归保留目录结构，跳过越界/循环symlink。任务自动排队真正发送，UI无需POST complete启动。原文件直接按4MB读取发送到远端/APIuploads断点。发送任何暂停/删除任务不会unlink/rename/truncate原文件。重试源文件的身份/大小/mtime变化时明确报错要求重新选择，不发送被替换或混合的文件。
+
+state transfers多 `localSource:true`，received=size表示原文件本来可用，UI仅根据deliveredBytes显示1条真实发送进度。现 POST /api/uploads/:id/pause暂停发送/队列任务（保留metadata原文件），POST /api/uploads/:id/complete继续发送，DELETE /api/uploads/:id仅删任务不删原文件。本机server目标只发布原文件inbox引用，不复制（若目标原文件直读无需发送，请UI明确选本机才这样）。浏览器目标收件箱引用源文件可下载，UI仍可保存但不复制服务端；Node server media serves引用原文件时重新验证source identity。
+
+普通远程网页仍用文件上传，因为浏览器没有设备文件绝对路径。Windows本机若把文件拖入浏览器，不能暗中fallback上传；提示使用本机文件选择窗口获取原路径。支持原路径粘贴，可调用local-transfers。界面针对adminlocal明确“直接从原文件发送”说明，只一条进度，native选择取消不发。
+
+本机路径接口仅loopback+admin会话+sameOrigin。无外部云端、无配对。现有共享、单文件link、browserremote、安卓互传保持。
+
+## 1.2 自有局域网直连（最新规则覆盖旧说明）
+
+不再需要配对码、PIN、登录或人为确认传输。`GET /api/bootstrap?deviceId=&name=` 在本机与LAN均自动注册并返回 token（仅内部区分任务/设备，不向用户展示认证流程），paired:true, capabilities.directConnect:true。`/api/pair` 为旧版兼容自动注册不验证code；peer/receive不需要Bearer。管理本机文件路径、设置、链接仍仅loopback管理（远端不应操作主机整个磁盘）。只读shares、state及server inbox download可匿名访问，设备任务使用自动返回token。
+
+主机 `POST /api/peer/receive` 将文件直接落盘，JSON成功响应包含文件接收完成；sender主机中转只能在远端确认后显示complete。peer没有token前置要求。state.devices所有发现host均paired:true可直接发送。服务端支持手动地址发现补充 `POST /api/peers/connect {url}` -> host加入discovery（只能http且LAN/loopback地址，校验/api/health serverid），返回设备；不用配对。
+
+共享影音需要在另一台独立主机也自动出现。每台主机周期拉取发现host的 `GET /api/shared-library`（公开,仅本机shares列表 `{server,shares:[{id,name,type:'folder'}]}`），state.shares同时包括本机项和peer项 `{id,name,type:'folder',hostId?:peer-uuid,sourceName?,remote:true}`，peer items不再转发避免循环。远端项前端通过当前host的同源代理 `/api/peers/:hostId/shares/:shareId/browse|file|download?path=` 浏览/播放（Range/HEAD/Content-Disposition保持），或者直接开远端url也可无需验证码。创建共享后最多5秒出现在另一端。
+
+UI彻底移除配对屏/验证码输入/配对主机弹窗/配对文案。扫码仅URL，连接自动完成，刷新/重连自动bootstrap。附近主机选中直接发送，当前主机收件箱明确。收到文件自动进入收件箱并醒目通知，native Android服务接收发系统通知并WebView事件 `linkwave-inbox`，前端自动切换收件区/提示不会等用户猜测；Windows显示接收路径与打开接收目录（POST /api/open-inbox admin）。共享区按sourceName来源可分辨主机。
+
+Common API for Node host and standalone Android host. UI in public/ is shared. Every JSON response uses normal objects; errors have `{error: human readable text}` and appropriate HTTP status. All protected routes require `Authorization: Bearer <token>`. UUID device id persisted in browser localStorage; server-generated token binds device identity. Relative URLs are important. UI language Chinese.
+
+## Bootstrap / authentication
+GET /api/bootstrap?deviceId=uuid&name=name -> `{server:{id,name,platform,version,port},paired:boolean,token?:string,device?:{id,name},admin:boolean,urls:[string],pairCode?:string,downloadDir?:string,capabilities:{folderPicker:boolean}}`. Local loopback client auto paired, admin true. Remote bootstrap only public info, no code or tokens. GET /api/qr (admin auth, PNG URL QR encoding first LAN URL with ?pair=<code>). POST /api/pair `{code,deviceId,name}` -> `{token,device,server,admin:false}`. POST /api/device `{name}` updates current device.
+
+## Devices and status
+GET /api/state -> `{server,devices:[{id,name,platform,type:'browser'|'host',online,ip?,url?,self?:boolean}],transfers:[{id,name,size,received,status:'uploading'|'sending'|'complete'|'error',direction:'incoming'|'outgoing',from,to,createdAt,error?}],inbox:[{id,name,size,relativePath,from,createdAt,url}],shares:[{id,name,path?,type:'folder'}],stats:{sentBytes,receivedBytes},urls:[string],pairCode?:string,downloadDir?:string}`. Admin sees code/downloadDir/share full paths, other clients only share names. Hosts advertise UDP JSON `{app:'linkwave',version:1,id,name,port,platform}` on multicast 239.255.42.99:53318 and broadcast fallback. Host peer entry id prefix `host:` with real server id, browser id regular UUID. API polls every 3 seconds, optionally /ws with `?token=` WebSocket `{type:'state'}` invalidation events. Current browser heartbeat POST /api/heartbeat.
+
+## Resumable upload / sending
+POST /api/uploads `{name,size,relativePath?,targetId:'uuid'|'host:uuid'|'server',lastModified?}` -> `{id,offset,chunkSize:4194304}`. Owner upload source identity from token, max size configurable 50GB. POST same metadata can resume incomplete existing upload. PUT /api/uploads/:id?offset=n raw binary (`application/octet-stream`), up to 4MB -> `{offset}`. Wrong offset 409 `{error,offset}`. GET /api/uploads/:id -> `{id,offset,size,status}`. POST /api/uploads/:id/complete -> `{id,status:'complete'|'sending'}`. DELETE /api/uploads/:id cancels. Current device owns upload. Finalized files directed to browser inbox; target server saves into host inbox accessible to all connected clients. Target remote host streams to /api/peer/receive?name=&size=&relativePath= with authenticated peer protocol challenge/header handshake documented in server code, receiver rejects unpaired peers. Native Android may use pairing token from remote `POST /api/peer/pair {code}`. Node expose POST /api/peer/pair (code required) -> `{token,server}`, local admin POST /api/peers/pair `{id,code}` -> stores token from remote host. Host transfer requires pair host first. State peer has `paired:boolean`. Outgoing completion errors retain uploaded data for retry. GET /api/inbox/:id/download (auth query `?token=` supported for anchors/media) Content-Disposition attachment. DELETE /api/inbox/:id removes received file and metadata, allowed owner/current receiver/admin. Target server inbox shown to all.
+
+## Shared media / filesystem
+POST /api/shares `{path,name?}` admin only -> share. DELETE /api/shares/:id admin only. POST /api/pick-folder admin -> `{path}` (Node Windows native PowerShell folder picker), Android starts SAF picker -> `{pending:true}`; UI polls state. GET /api/shares/:id/browse?path=relative -> `{share:{id,name},path,parent,entries:[{name,path,type:'folder'|'file',size,modifiedAt,mime}],total}`. Sort directories first. GET /api/shares/:id/file?path=&token= inline media with proper mime, GET/HEAD byte ranges supported. GET /api/shares/:id/download?path=&token= attachment (directory => streamed ZIP on Node; Android can return unsupported). Sanitized traversal, symlink out-of-root rejection.
+
+## Settings
+PATCH /api/settings admin `{name?,downloadDir?,pairCode?}` -> bootstrap-like config, restart not needed. GET /api/health public `{ok:true,version,serverId}`. Server CLI `--port`, `--data-dir`, `--host`, `--no-open`, `--name`; environment LINKWAVE_PORT, LINKWAVE_DATA_DIR, LINKWAVE_NO_OPEN=1, LINKWAVE_HOST. Export createApp(options) async -> `{app,server,start(),close(),config}` for integration tests. Default port 53317. App data location portable .exe sibling data/; Node cwd data/ configurable.
+
+Security: remote browsing/transfers paired; admin only loopback plus assigned token; validate Origin for mutations and token protection; no external services. Desktop application must use http://127.0.0.1:<port> for admin. Android localhost in WebView admin. URL QR uses LAN address. Do not auto-open remote discovered server. Clean interrupted upload files after a retention period, immutable shared files unless admin removes share.
+
+## Single-file download links (1.1.0)
+Local host admin chooses a file and explicitly creates a download link. File read in place, no preliminary upload/copy. Anyone with the random link on the reachable LAN can download without pairing or credentials. This is an intentional scoped bearer capability for one file; never use the admin/session token in the link.
+
+POST /api/pick-file `{}` admin -> Node native Windows OpenFileDialog `{path,name,size}`; Android SAF picker `{pending:true}`. After Android selection, `GET /api/state` admin adds `pickedFile:{path,name,size,selectionId}` (transient) and WebView dispatches `linkwave-native-file` event. Frontend tracks selectionId and only applies new picks. Android path is persisted content:// document URI. Node also allows typing an absolute filename.
+
+POST /api/file-links `{path,expiresIn:86400|3600|604800|0}` admin -> `{id,name,size,path,url,createdAt,expiresAt:null|ISO,downloads,status:'active'|'expired'|'missing'}`. Default expiresIn 86400 (24h); 0 means manually revoked. ID cryptographically random 32 lowercase hex. Absolute `url` uses first LAN URL + `/d/:id/:encodedName`; no pairing required. Node rejects directories, relative paths and file replacement with another file/symlink pointing outside original chosen source. Android accepts persisted SAF document URI; rejects folders. File change size/mtime may update displayed current size; original source identity must remain bound. No link can select another arbitrary path from query params or trailing route name. Trailing name only friendly display.
+
+GET /api/file-links admin -> `{links:[same view objects]}`. Also admin `/api/state` includes `fileLinks:[same view objects]`; paired remote users get no link inventory or local source paths. DELETE /api/file-links/:id admin removes only link metadata, leaves original file untouched; download URL then 404 immediately. Link creation, revocation and expiry persist across restart. Public GET/HEAD `/d/:id/:name?` downloads original via Content-Disposition attachment, supports Range/HEAD. Expired links return 410, missing/replaced source 404, invalid IDs 404. Query `?path=` cannot override file. Never execute HTML/SVG shared files in app origin (attachment, nosniff, sandbox CSP). downloads counts successful non-range GET responses only (not HEAD or Range).
+
+UI Chinese ‘链接分享’, local-admin-only card in transfer view, create dialog with Windows path + native picker / Android native document picker, expiry selector, prominent copy URL, created link list with filename/size/expiry/download count/copy/revoke. Clipboard fallback for HTTP. Explain host must remain running and link holder can directly download. No access to other files or app management through link.

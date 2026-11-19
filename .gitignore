@@ -1,0 +1,34 @@
+# npm dependencies and generated distributables; rebuild from package-lock.json
+node_modules/
+dist/
+
+# User receive files, runtime configuration/session tokens, and task work files
+data/
+.build/
+
+# Android / Gradle caches, outputs, and machine-specific SDK location
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Shared web assets are copied from public/ by the Android build script
+android/app/src/main/assets/web/
+android/app/src/main/assets/www/
+android/.tools/
+
+# Disposable validation fixtures may contain paths, tokens, or test media
+android/test-fixtures/
+android/direct-fixtures/
+android/file-link-fixtures/
+android/verify*-result.json
+
+# Local screenshots and execution logs are validation outputs, not source
+android/preview-*.png
+docs/screenshots/
+*.log
+*.tmp
+
+# Native picker executable is built from server/picker/Source.cs
+server/picker/LinkWavePicker.exe
+

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10131e">
+  <meta name="description" content="邻波 LinkWave，连接你的局域网。互传文件、生成单文件下载链接，随时播放共享影音。">
+  <title>邻波 LinkWave · 让文件自由流动</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<svg class="svg-library" aria-hidden="true"><defs>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h3l3-7 6 14 3-7h3"/></symbol>
+  <symbol id="i-transfer" viewBox="0 0 24 24"><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 3v18M17 3v18M3 8h4m10 0h4M3 16h4m10 0h4"/><path d="m10 9 5 3-5 3z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="m10 3-1 3-3 1-3-1-1 4 2 2-2 2 1 4 3-1 3 1 1 3h4l1-3 3-1 3 1 1-4-2-2 2-2-1-4-3 1-3-1-1-3z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10zM13 3v7h7M8 14h8M8 17h5"/></symbol>
+  <symbol id="i-pc" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 5h4m-3 14h2"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6h.01M7 17h.01M12 6h5m-5 11h5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM21 15v3h-3v3h-3M21 21h.01M3 12h3m6-9v3m0 3v6m-3-3h6m3 0h3m-9 6v3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 13 8-13 8z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 7M4 12l2 7a7 7 0 0 0 12-2"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-7 5 8"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m2 2 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+</defs></svg>
+
+<div id="app" class="app-shell" hidden>
+  <aside class="sidebar">
+    <a class="brand" href="#transfer" aria-label="邻波首页"><span class="brand-mark"><svg class="icon"><use href="#i-wave"/></svg></span><span>邻波 <small>LINKWAVE</small></span></a>
+    <div class="nav-label">我的局域网</div>
+    <nav class="main-nav" aria-label="主导航">
+      <button class="nav-item active" data-view="transfer"><svg class="icon"><use href="#i-transfer"/></svg><span>文件互传</span><span id="inbox-nav-count" class="nav-count inbox-nav-count"></span></button>
+      <button class="nav-item" data-view="media"><svg class="icon"><use href="#i-film"/></svg><span>影音共享</span></button>
+      <button class="nav-item" data-view="activity"><svg class="icon"><use href="#i-clock"/></svg><span>传输记录</span><span id="activity-count" class="nav-count"></span></button>
+      <button class="nav-item" data-view="settings"><svg class="icon"><use href="#i-settings"/></svg><span>偏好设置</span></button>
+    </nav>
+    <div class="sidebar-note"><span class="tiny-dot"></span> 文件只在局域网内流动<div>无需云端 · 无需账号</div></div>
+    <button class="connection-card" id="connection-button"><span class="connection-icon"><svg class="icon"><use href="#i-qr"/></svg></span><span>连接一台新设备<small>扫码或输入地址，即刻加入</small></span><svg class="icon small"><use href="#i-chevron"/></svg></button>
+    <div class="self-card"><span class="device-avatar"><svg class="icon"><use href="#i-pc"/></svg></span><span class="self-detail"><strong id="self-name">我的设备</strong><small id="self-label">正在连接</small></span><span class="online-dot"></span></div>
+  </aside>
+  <main class="main-content">
+    <header class="topbar"><div class="topbar-crumb">我的空间 <svg class="icon small"><use href="#i-chevron"/></svg> <span id="view-crumb">文件互传</span></div><div class="topbar-right"><span id="network-badge" class="network-badge"><span class="tiny-dot"></span>局域网已连接</span><button class="icon-button" id="mobile-connect" aria-label="连接设备"><svg class="icon"><use href="#i-qr"/></svg></button><span class="top-avatar" id="top-avatar">L</span></div></header>
+    <div id="connection-banner" class="connection-banner" hidden><svg class="icon"><use href="#i-wifi"/></svg><span>与主机的连接已断开，正在自动重连…</span><button class="button small secondary" id="reconnect-button">立即重试</button></div>
+    <div id="inbox-notice" class="inbox-notice" role="status" aria-live="polite" hidden><span class="inbox-notice-icon"><svg class="icon"><use href="#i-download"/></svg></span><div><strong id="inbox-notice-title">收到新文件</strong><p id="inbox-notice-detail"></p></div><div class="inbox-notice-actions"><button id="inbox-notice-view" class="button primary small">查看收件箱</button><button id="inbox-notice-dismiss" class="icon-button" aria-label="标记收到的文件已读"><svg class="icon"><use href="#i-x"/></svg></button></div></div>
+    <section class="view active" id="view-transfer" aria-labelledby="transfer-heading">
+      <div class="page-heading"><div><div class="eyebrow">CONNECTED. SIMPLE. LOCAL.</div><h1 id="transfer-heading">让文件，自由流动<span class="heading-dot">.</span></h1><p>从这台设备，到另一台。大文件、小瞬间，轻松送达。</p></div><button class="button secondary" id="connect-main"><svg class="icon"><use href="#i-qr"/></svg>邀请设备</button></div>
+      <div class="transfer-layout">
+        <div class="transfer-primary">
+          <section id="receive-section" class="receive-section" aria-labelledby="receive-heading" hidden><div class="section-heading"><h2 id="receive-heading">正在接收 <span id="receive-count" class="count-pill">0</span></h2><span class="hint">文件收到后会出现在下方收件箱</span></div><div id="receive-list" class="file-list"></div></section>
+          <div class="section-heading"><h2>发送文件 <span class="section-tag">SEND</span></h2><span class="hint">本地直达，支持断点续传</span></div>
+          <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="点击或拖放文件到这里发送"><div class="drop-grid"></div><div class="drop-orbit orbit-a"></div><div class="drop-orbit orbit-b"></div><div class="upload-art"><span class="art-file art-back"><svg class="icon"><use href="#i-file"/></svg></span><span class="art-file art-front"><svg class="icon"><use href="#i-upload"/></svg></span><span class="art-spark spark-one"></span><span class="art-spark spark-two"></span></div><h3 id="drop-title">把文件拖到这里</h3><p id="drop-description">也可以从设备中选择文件或整个文件夹</p><div class="drop-actions"><button class="button primary" id="choose-files"><svg class="icon"><use href="#i-plus"/></svg>选择文件</button><button class="button secondary" id="choose-folder"><svg class="icon"><use href="#i-folder"/></svg>选择文件夹</button></div><button class="text-button local-path-button" id="paste-local-paths" hidden>粘贴原文件路径</button><div class="drop-footer" id="drop-footer"><svg class="icon small"><use href="#i-lock"/></svg>文件留在你的网络里 <span>·</span> 多文件 <span>·</span> 大文件</div></div>
+          <div class="target-strip"><span class="target-label">发送至</span><button class="target-choice" id="target-button"><span class="target-icon"><svg class="icon"><use href="#i-wifi"/></svg></span><span id="target-name">选择接收设备</span><svg class="icon small"><use href="#i-chevron"/></svg></button><span class="target-tip" id="target-tip">等待另一台设备加入</span></div>
+          <div id="upload-section" class="upload-section" hidden><div class="section-heading"><h2>发送队列 <span id="queue-count" class="section-tag">0</span></h2><button class="text-button" id="clear-complete">清理已完成</button></div><div id="upload-list" class="file-list"></div><p class="subtle-note" id="send-help">先上传到当前主机，再发送到接收设备。暂停后可继续；已上传完的文件，重新打开页面后可直接继续发送。上传未完成时，重新选择同一文件即可接续。</p></div>
+          <section id="file-links-section" class="file-links-panel admin-only" aria-labelledby="file-links-heading">
+            <div class="file-links-intro"><span class="file-links-symbol"><svg class="icon"><use href="#i-link"/></svg></span><div><h2 id="file-links-heading">链接分享 <span class="section-tag">ONE FILE. ONE LINK.</span></h2><p>选择本机文件，复制链接。同一局域网内，打开就能下载。</p></div><button class="button secondary small" id="create-file-link"><svg class="icon small"><use href="#i-plus"/></svg>创建下载链接</button></div>
+            <details id="file-links-details" class="file-links-details" hidden><summary>已分享的文件 <span id="file-links-count" class="count-pill">0</span><svg class="icon small"><use href="#i-chevron"/></svg></summary><div id="file-links-list" class="file-links-list"></div></details>
+          </section>
+          <section id="inbox-section" class="inbox-section" aria-labelledby="inbox-heading"><div class="section-heading inbox-heading"><h2 id="inbox-heading">收到的文件 <span id="inbox-count" class="count-pill">0</span></h2><div class="inbox-controls"><button class="button secondary small" id="open-inbox" hidden><svg class="icon small"><use href="#i-folder"/></svg>打开接收目录</button><button class="icon-button" id="refresh-inbox" aria-label="刷新收件箱"><svg class="icon small"><use href="#i-refresh"/></svg></button></div></div><p id="inbox-location" class="inbox-location"></p><p id="inbox-save-help" class="inbox-save-help"></p><div id="inbox-list" class="file-list"></div></section>
+        </div>
+        <aside class="devices-panel"><div class="section-heading"><h2>附近的设备 <span id="device-count" class="count-pill">0</span></h2><span class="radar-indicator" title="自动发现局域网主机"></span></div><p class="devices-subtitle">点选设备，文件直接送达。</p><div id="device-list" class="device-list"></div><div class="device-help"><svg class="icon"><use href="#i-wifi"/></svg><div>同一 Wi-Fi，即可相遇<small>电脑和安卓主机自动发现；浏览器扫码连接后出现在这里。</small></div></div><div class="stats-card"><div class="stats-heading">此刻的连接 <span>LIVE</span></div><div class="stats-values"><div><strong id="stat-sent">0 B</strong><span><svg class="icon small"><use href="#i-upload"/></svg>累计发出</span></div><div><strong id="stat-received">0 B</strong><span><svg class="icon small"><use href="#i-download"/></svg>累计收到</span></div></div><div class="stats-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></aside>
+      </div>
+    </section>
+    <section class="view" id="view-media" aria-labelledby="media-heading"><div class="page-heading"><div><div class="eyebrow">YOUR PERSONAL STREAMING SPACE</div><h1 id="media-heading">把影音，带到眼前<span class="heading-dot">.</span></h1><p>共享一个文件夹，让手机、平板和电脑随时播放。</p></div><button class="button primary admin-only" id="add-share"><svg class="icon"><use href="#i-plus"/></svg>共享文件夹</button></div><div id="media-root"><div class="media-feature"><div><span class="feature-kicker">LAN CINEMA</span><h2>你自己的，家庭影院。</h2><p>即点即播 · 原画质直读 · 拖动进度无需等待</p></div><div class="cinema-art"><span class="cinema-screen"><svg class="icon"><use href="#i-play"/></svg></span><i></i><i></i><i></i></div></div><div class="section-heading"><h2>共享空间 <span id="share-count" class="count-pill">0</span></h2><span class="hint">文件保留在原来的位置</span></div><div id="share-grid" class="share-grid"></div></div><div id="media-browser" hidden><div class="browser-toolbar"><div id="breadcrumbs" class="breadcrumbs"></div><div class="browser-controls"><label class="search-box"><svg class="icon small"><use href="#i-search"/></svg><input id="file-search" type="search" placeholder="搜索当前目录" aria-label="搜索当前目录"></label><select id="file-sort" aria-label="排序"><option value="name">名称排序</option><option value="date">最近修改</option><option value="size">文件大小</option></select><button class="icon-button" id="browser-refresh" aria-label="刷新目录"><svg class="icon"><use href="#i-refresh"/></svg></button></div></div><div id="file-browser" class="file-browser"></div><div class="browser-footer"><span id="browser-total"></span><span>支持视频、音频和图片预览</span></div></div><p class="subtle-note media-format-note">视频直接由浏览器解码，推荐 MP4（H.264）或 WebM。其他格式可下载后在本地播放器打开。</p></section>
+    <section class="view" id="view-activity" aria-labelledby="activity-heading"><div class="page-heading"><div><div class="eyebrow">EVERY FILE HAS A JOURNEY</div><h1 id="activity-heading">每一次，都有迹可循<span class="heading-dot">.</span></h1><p>文件的旅程，就在这里。</p></div><button class="button secondary" id="refresh-activity"><svg class="icon"><use href="#i-refresh"/></svg>刷新记录</button></div><div class="activity-summary"><div><span class="summary-icon purple"><svg class="icon"><use href="#i-transfer"/></svg></span><div><strong id="summary-total">0</strong><small>传输记录</small></div></div><div><span class="summary-icon mint"><svg class="icon"><use href="#i-check"/></svg></span><div><strong id="summary-complete">0</strong><small>完成传输</small></div></div><div><span class="summary-icon blue"><svg class="icon"><use href="#i-clock"/></svg></span><div><strong id="summary-active">0</strong><small>正在传输</small></div></div></div><div class="activity-toolbar"><div class="segmented" id="activity-filter"><button class="active" data-filter="all">全部</button><button data-filter="active">传输中</button><button data-filter="complete">已完成</button><button data-filter="error">未完成</button></div></div><div id="activity-list" class="file-list activity-list"></div></section>
+    <section class="view" id="view-settings" aria-labelledby="settings-heading"><div class="page-heading"><div><div class="eyebrow">MAKE IT YOURS</div><h1 id="settings-heading">刚好，适合你<span class="heading-dot">.</span></h1><p>一个名字，一处空间。把这里设置成你喜欢的样子。</p></div></div><div class="settings-grid"><form class="settings-card" id="device-form"><div class="settings-card-title"><svg class="icon"><use href="#i-pc"/></svg><h2>当前设备</h2></div><label class="field-label" for="device-name">设备名称</label><input id="device-name" class="text-input" maxlength="60" placeholder="例如：我的手机" required><p class="field-help">这是其他设备看到的你的名字。</p><button class="button primary" type="submit">保存设备名称</button></form><form class="settings-card admin-only" id="server-form"><div class="settings-card-title"><svg class="icon"><use href="#i-server"/></svg><h2>共享主机</h2></div><label class="field-label" for="server-name">主机名称</label><input id="server-name" class="text-input" maxlength="60" required><label class="field-label" for="download-dir">接收文件保存到</label><div class="input-with-button"><input id="download-dir" class="text-input" placeholder="接收目录的完整路径"><button type="button" class="icon-button" id="pick-download-dir" aria-label="选择保存目录"><svg class="icon"><use href="#i-folder"/></svg></button></div><p class="field-help" id="download-dir-help">修改后，新收到的文件会保存到这里。</p><button class="button primary" type="submit">保存主机设置</button></form><div class="settings-card about-card"><div class="about-brand"><span class="brand-mark"><svg class="icon"><use href="#i-wave"/></svg></span><div><h2>邻波 LinkWave</h2><span id="app-version">v1.0.0</span></div></div><p>让连接简单，让文件自由。</p><div class="about-details"><div><span>工作方式</span><strong>局域网直连</strong></div><div><span>数据去向</span><strong>你的设备</strong></div><div><span>支持平台</span><strong>Windows · Android · 浏览器</strong></div></div><div class="about-foot"><svg class="icon small"><use href="#i-lock"/></svg>无云端存储 · 不上传到互联网</div></div><div class="settings-card tips-card"><div class="settings-card-title"><svg class="icon"><use href="#i-info"/></svg><h2>连接小贴士</h2></div><ul><li>所有设备连接到同一个路由器或手机热点。</li><li>电脑与安卓 App 可作为独立主机，手机浏览器也可加入。</li><li>首次启动电脑端时，允许 Windows 防火墙的专用网络访问。</li><li>共享主机保持运行，即可在其他设备在线播放。</li><li>浏览器接收的文件先保存在主机收件箱，点击下载保存到本机。</li></ul></div></div></section>
+    <footer class="page-footer"><span>邻波 LinkWave</span><span>每一份文件，都有更近的连接。</span><span class="footer-status"><span class="tiny-dot"></span> LOCAL FIRST</span></footer>
+  </main>
+</div>
+
+
+<div id="loading-screen" class="loading-screen"><span class="brand-mark"><svg class="icon"><use href="#i-wave"/></svg></span><div class="loader"></div><span>正在连接你的局域网</span><p id="loading-error" hidden></p><button class="button secondary" id="loading-retry" hidden>重新连接</button></div>
+<input id="files-input" type="file" multiple hidden><input id="folder-input" type="file" webkitdirectory multiple hidden><input id="subtitle-input" type="file" accept=".vtt,text/vtt" hidden>
+<dialog id="modal" class="modal"><div class="modal-header"><h2 id="modal-title"></h2><button class="icon-button" id="modal-close" aria-label="关闭"><svg class="icon"><use href="#i-x"/></svg></button></div><div id="modal-body"></div></dialog>
+<dialog id="player-modal" class="player-modal"><div class="player-header"><div><span class="player-kicker">LINKWAVE PLAYER</span><h2 id="player-title"></h2></div><button class="icon-button" id="player-close" aria-label="关闭播放器"><svg class="icon"><use href="#i-x"/></svg></button></div><div id="player-content" class="player-content"></div><div id="player-error" class="player-error" hidden></div><div class="player-footer"><span id="player-detail"></span><div><button class="button secondary small" id="subtitle-button"><svg class="icon small"><use href="#i-file"/></svg>加载 VTT 字幕</button><a class="button secondary small" id="player-download" download><svg class="icon small"><use href="#i-download"/></svg>下载原文件</a></div></div></dialog>
+<div id="toast-region" class="toast-region" aria-live="polite"></div>
+</body>
+</html>
