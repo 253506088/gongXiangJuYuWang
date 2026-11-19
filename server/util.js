@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const CHUNK_SIZE = 4 * 1024 * 1024;
 const uuid = () => crypto.randomUUID();
 const token = () => crypto.randomBytes(32).toString('hex');

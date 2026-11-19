@@ -4,16 +4,25 @@ import android.Manifest;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
 import android.webkit.*;
 import android.widget.*;
 import android.graphics.Color;
+import android.view.*;
 import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
     private WebView web;
+    private FrameLayout content;
+    private FrameLayout fullscreenContainer;
+    private View customView;
+    private WebChromeClient.CustomViewCallback customViewCallback;
+    private int originalOrientation,originalSystemUi,originalWindowFlags,originalWebVisibility;
+    private int originalStatusColor,originalNavigationColor,originalBarsBehavior;
+    private boolean originalStatusVisible,originalNavigationVisible,destroying,playerWindowFullscreen;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private ValueCallback<Uri[]> fileCallback;
     private static final int CHOOSE_FILES=10,CHOOSE_FOLDER=11,CHOOSE_LINK_FILE=12;
@@ -21,9 +30,12 @@ public final class MainActivity extends Activity {
     private JSONObject pendingInbox;
     private final java.util.Map<String,JSONObject> pendingTransfers=new java.util.LinkedHashMap<>();
     private boolean pageReady,showInbox;
-    public void onCreate(Bundle saved){super.onCreate(saved);getWindow().setStatusBarColor(Color.rgb(13,16,25));getWindow().setNavigationBarColor(Color.rgb(13,16,25));WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);web=new WebView(this);web.clearCache(true);web.setBackgroundColor(Color.rgb(13,16,25));setContentView(web);WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setDatabaseEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMediaPlaybackRequiresUserGesture(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(true);s.setUserAgentString(s.getUserAgentString()+" LinkWaveAndroid/1.2.0");if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);web.addJavascriptInterface(new Bridge(),"Android");
+    public void onCreate(Bundle saved){super.onCreate(saved);getWindow().setStatusBarColor(Color.rgb(13,16,25));getWindow().setNavigationBarColor(Color.rgb(13,16,25));WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);content=new FrameLayout(this);web=new WebView(this);web.clearCache(true);web.setBackgroundColor(Color.rgb(13,16,25));content.addView(web,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));setContentView(content);WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setDatabaseEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setMediaPlaybackRequiresUserGesture(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(true);s.setUserAgentString(s.getUserAgentString()+" LinkWaveAndroid/"+HostState.VERSION);if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);web.addJavascriptInterface(new Bridge(),"Android");
         web.setWebViewClient(new WebViewClient(){public void onPageFinished(WebView view,String url){pageReady=true;deliverInbox();deliverTransfers();}public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){Uri uri=request.getUrl();String host=uri.getHost();if(("http".equals(uri.getScheme())||"https".equals(uri.getScheme()))&&("127.0.0.1".equals(host)||"localhost".equals(host)))return false;try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(Exception e){toast("没有可以打开此链接的应用");}return true;}});
         web.setWebChromeClient(new WebChromeClient(){
+            public void onShowCustomView(View view,CustomViewCallback callback){showFullscreen(view,callback);}
+            public void onShowCustomView(View view,int requestedOrientation,CustomViewCallback callback){showFullscreen(view,callback);}
+            public void onHideCustomView(){hideFullscreen(false);}
             public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){if(fileCallback!=null)fileCallback.onReceiveValue(null);fileCallback=callback;Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("*/*");intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivityForResult(intent,CHOOSE_FILES);}catch(Exception e){fileCallback.onReceiveValue(null);fileCallback=null;toast("无法打开文件选择器");}return true;}
             public boolean onCreateWindow(WebView view,boolean dialog,boolean gesture,Message message){WebView popup=new WebView(MainActivity.this);popup.setWebViewClient(new WebViewClient(){public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){try{startActivity(new Intent(Intent.ACTION_VIEW,r.getUrl()));}catch(Exception ignored){}v.destroy();return true;}});WebView.WebViewTransport transport=(WebView.WebViewTransport)message.obj;transport.setWebView(popup);message.sendToTarget();return true;}
         });
@@ -32,6 +44,58 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT<=28&&checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},21);
         showInbox=getIntent().getBooleanExtra("openInbox",false);
         startForegroundService(new Intent(this,HostService.class));started=System.currentTimeMillis();handler.post(this::connect);
+    }
+    private void showFullscreen(View view,WebChromeClient.CustomViewCallback callback){
+        if(destroying||customView!=null){callback.onCustomViewHidden();return;}
+        if(playerWindowFullscreen)hidePlayerWindowFullscreen(false);
+        captureWindowState();
+        customView=view;customViewCallback=callback;fullscreenContainer=new FrameLayout(this);fullscreenContainer.setBackgroundColor(Color.BLACK);
+        fullscreenContainer.addView(view,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+        // Native single-video fullscreen has no HTML overlay. Always provide
+        // a visible way out, in addition to Android Back and browser controls.
+        Button exit=new Button(this);exit.setText("退出全屏");exit.setTextColor(Color.WHITE);exit.setBackgroundColor(0x99202020);exit.setOnClickListener(v->hideFullscreen(true));
+        FrameLayout.LayoutParams exitParams=new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.TOP|Gravity.END);exitParams.topMargin=12;exitParams.rightMargin=12;fullscreenContainer.addView(exit,exitParams);
+        content.addView(fullscreenContainer,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));web.setVisibility(View.GONE);
+        enterWindowFullscreen();
+        android.util.Log.i("LinkWaveFullscreen","onShowCustomView native fullscreen entered");
+    }
+    private void hideFullscreen(boolean requestWebExit){
+        if(customView==null)return;
+        WebChromeClient.CustomViewCallback callback=customViewCallback;customView=null;customViewCallback=null;
+        if(fullscreenContainer!=null){fullscreenContainer.removeAllViews();content.removeView(fullscreenContainer);fullscreenContainer=null;}
+        restoreWindowState();if(web!=null)web.setVisibility(originalWebVisibility);
+        if(callback!=null)try{callback.onCustomViewHidden();}catch(RuntimeException e){android.util.Log.w("LinkWaveFullscreen","Fullscreen callback already released",e);}
+        if(!destroying&&web!=null){web.requestFocus();web.evaluateJavascript("(function(){"+(requestWebExit?"try{var p=document.exitFullscreen?document.exitFullscreen():document.webkitExitFullscreen?document.webkitExitFullscreen():null;if(p&&p.catch)p.catch(function(){});}catch(e){}":"")+"window.dispatchEvent(new Event('linkwave-fullscreen-exit'));})()",null);}
+        android.util.Log.i("LinkWaveFullscreen","onHideCustomView native fullscreen restored");
+    }
+    private void captureWindowState(){
+        Window window=getWindow();View decor=window.getDecorView();
+        originalOrientation=getRequestedOrientation();originalSystemUi=decor.getSystemUiVisibility();originalWindowFlags=window.getAttributes().flags;originalWebVisibility=web.getVisibility();originalStatusColor=window.getStatusBarColor();originalNavigationColor=window.getNavigationBarColor();
+        if(Build.VERSION.SDK_INT>=30){WindowInsets insets=decor.getRootWindowInsets();originalStatusVisible=insets==null||insets.isVisible(WindowInsets.Type.statusBars());originalNavigationVisible=insets==null||insets.isVisible(WindowInsets.Type.navigationBars());WindowInsetsController controller=window.getInsetsController();originalBarsBehavior=controller==null?WindowInsetsController.BEHAVIOR_DEFAULT:controller.getSystemBarsBehavior();}
+    }
+    private void enterWindowFullscreen(){
+        Window window=getWindow();window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN|WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        if(Build.VERSION.SDK_INT>=30){WindowInsetsController controller=window.getInsetsController();if(controller!=null){controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);controller.hide(WindowInsets.Type.systemBars());}}
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    }
+    private void restoreWindowState(){
+        Window window=getWindow();window.setFlags(originalWindowFlags,~0);window.getDecorView().setSystemUiVisibility(originalSystemUi);window.setStatusBarColor(originalStatusColor);window.setNavigationBarColor(originalNavigationColor);
+        // Do not change decorFitsSystemWindows: fullscreen only hides bars,
+        // preserving the Activity's original inset/layout policy throughout.
+        if(Build.VERSION.SDK_INT>=30){WindowInsetsController controller=window.getInsetsController();if(controller!=null){controller.setSystemBarsBehavior(originalBarsBehavior);if(originalStatusVisible)controller.show(WindowInsets.Type.statusBars());else controller.hide(WindowInsets.Type.statusBars());if(originalNavigationVisible)controller.show(WindowInsets.Type.navigationBars());else controller.hide(WindowInsets.Type.navigationBars());}}
+        setRequestedOrientation(originalOrientation);
+    }
+    private void showPlayerWindowFullscreen(){
+        if(destroying||playerWindowFullscreen)return;if(customView!=null)hideFullscreen(true);captureWindowState();playerWindowFullscreen=true;enterWindowFullscreen();
+        // Chromium's native video CustomView excludes the HTML ASS canvas.
+        // Keep the complete WebView visible in a native immersive window for
+        // container playback; the CustomView remains a single-video fallback.
+        android.util.Log.i("LinkWaveFullscreen","enterPlayerFullscreen native window entered");
+    }
+    private void hidePlayerWindowFullscreen(boolean notifyWeb){
+        if(!playerWindowFullscreen)return;playerWindowFullscreen=false;restoreWindowState();
+        if(notifyWeb&&!destroying&&web!=null)web.evaluateJavascript("window.dispatchEvent(new Event('linkwave-fullscreen-exit'))",null);
+        android.util.Log.i("LinkWaveFullscreen","exitPlayerFullscreen native window restored");
     }
     private void connect(){HostService host=HostService.instance;if(host!=null&&host.server!=null&&host.state!=null){host.state.activity=this;web.loadUrl("http://127.0.0.1:"+host.state.port);return;}if(System.currentTimeMillis()-started>30000){new AlertDialog.Builder(this).setTitle("服务启动失败").setMessage("请重新打开邻波，或确认系统允许此应用运行局域网服务。").setPositiveButton("重试",(d,w)->{started=System.currentTimeMillis();startForegroundService(new Intent(this,HostService.class));handler.post(this::connect);}).show();return;}handler.postDelayed(this::connect,100);}
     public void pickFolder(){runOnUiThread(()->{try{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,CHOOSE_FOLDER);}catch(Exception e){toast("无法打开共享文件夹选择器");}});}
@@ -68,8 +132,9 @@ public final class MainActivity extends Activity {
     private void deliverInbox(){if(web==null||!pageReady||!showInbox)return;String detail=pendingInbox==null?"{}":pendingInbox.toString();web.evaluateJavascript("window.dispatchEvent(new CustomEvent('linkwave-inbox',{detail:"+detail+"}))",null);pendingInbox=null;showInbox=false;}
     void openDownloads(){runOnUiThread(()->{try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("文件已保存在收件箱，请在列表中查看");}});}
     protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(intent.getBooleanExtra("openInbox",false)){showInbox=true;deliverInbox();}}
-    public void onBackPressed(){if(web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setTitle("邻波继续接收文件").setMessage("返回桌面后局域网服务继续运行，可从通知栏停止。").setPositiveButton("返回桌面",(d,w)->moveTaskToBack(true)).setNegativeButton("停止服务并退出",(d,w)->{stopService(new Intent(this,HostService.class));finish();}).show();}
+    public void onBackPressed(){if(customView!=null){hideFullscreen(true);return;}if(playerWindowFullscreen){hidePlayerWindowFullscreen(true);return;}if(web!=null)web.evaluateJavascript("(function(){if(document.fullscreenElement||document.webkitFullscreenElement||document.querySelector('#player-modal.player-cover')){try{var p=document.exitFullscreen?document.exitFullscreen():document.webkitExitFullscreen?document.webkitExitFullscreen():null;if(p&&p.catch)p.catch(function(){});}catch(e){}window.dispatchEvent(new Event('linkwave-fullscreen-exit'));return true;}return false;})()",value->{if(!"true".equals(value))normalBack();});else normalBack();}
+    private void normalBack(){if(web!=null&&web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setTitle("邻波继续接收文件").setMessage("返回桌面后局域网服务继续运行，可从通知栏停止。").setPositiveButton("返回桌面",(d,w)->moveTaskToBack(true)).setNegativeButton("停止服务并退出",(d,w)->{stopService(new Intent(this,HostService.class));finish();}).show();}
     protected void onResume(){super.onResume();HostService h=HostService.instance;if(h!=null&&h.state!=null)h.state.activity=this;else if(h==null&&pageReady){pageReady=false;started=System.currentTimeMillis();startForegroundService(new Intent(this,HostService.class));handler.post(this::connect);}deliverInbox();}
-    protected void onDestroy(){handler.removeCallbacksAndMessages(null);HostService h=HostService.instance;if(h!=null&&h.state!=null&&h.state.activity==this)h.state.activity=null;if(fileCallback!=null){fileCallback.onReceiveValue(null);fileCallback=null;}if(web!=null)web.destroy();super.onDestroy();}
-    final class Bridge {@JavascriptInterface public void pickFolder(){MainActivity.this.pickFolder();}@JavascriptInterface public void pickFile(){MainActivity.this.pickFile();}@JavascriptInterface public void openDownloads(){MainActivity.this.openDownloads();}@JavascriptInterface public void batterySettings(){runOnUiThread(()->{try{startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));}catch(Exception ignored){}});}}
+    protected void onDestroy(){destroying=true;hideFullscreen(false);hidePlayerWindowFullscreen(false);handler.removeCallbacksAndMessages(null);HostService h=HostService.instance;if(h!=null&&h.state!=null&&h.state.activity==this)h.state.activity=null;if(fileCallback!=null){fileCallback.onReceiveValue(null);fileCallback=null;}if(web!=null){web.destroy();web=null;}super.onDestroy();}
+    final class Bridge {@JavascriptInterface public void pickFolder(){MainActivity.this.pickFolder();}@JavascriptInterface public void pickFile(){MainActivity.this.pickFile();}@JavascriptInterface public void openDownloads(){MainActivity.this.openDownloads();}@JavascriptInterface public void enterPlayerFullscreen(){runOnUiThread(MainActivity.this::showPlayerWindowFullscreen);}@JavascriptInterface public void exitPlayerFullscreen(){runOnUiThread(()->hidePlayerWindowFullscreen(false));}@JavascriptInterface public void batterySettings(){runOnUiThread(()->{try{startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));}catch(Exception ignored){}});}}
 }

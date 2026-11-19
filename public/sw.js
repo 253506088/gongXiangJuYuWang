@@ -1,5 +1,5 @@
-const CACHE = 'linkwave-shell-v1.3-local-source';
-const ASSETS = ['/', '/styles.css', '/app.js', '/icon.svg', '/manifest.webmanifest'];
+const CACHE = 'linkwave-shell-v1.4-subtitles';
+const ASSETS = ['/', '/styles.css', '/subtitles.js', '/app.js', '/icon.svg', '/manifest.webmanifest'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', event => {

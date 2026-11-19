@@ -41,8 +41,9 @@ function createSharedLibrary(config,discovery,serverInfo,saveConfig,notify){
     app.get('/api/shared-library',(req,res)=>res.json({server:serverInfo(),shares:config.shares.map(s=>({id:s.id,name:s.name,type:'folder'}))}));
     app.post('/api/peers/connect',asyncRoute(async(req,res)=>res.json({device:await connect(req.body.url)})));
     app.get('/api/peers/:hostId/shares/:shareId/:action',asyncRoute(async(req,res)=>{
-      const peer=discovery.peers.get(req.params.hostId);if(!peer)throw fail('这台共享设备已离线',404);if(!['browse','file','download'].includes(req.params.action))throw fail('接口不存在',404);
+      const peer=discovery.peers.get(req.params.hostId);if(!peer)throw fail('这台共享设备已离线',404);if(!['browse','file','download','subtitles','subtitle'].includes(req.params.action))throw fail('接口不存在',404);
       const remote=new URL(`/api/shares/${encodeURIComponent(req.params.shareId)}/${req.params.action}`,lanUrl(peer.url));remote.searchParams.set('path',safeRelative(req.query.path||''));
+      if(req.params.action==='subtitle'){const format=req.query.format||'vtt';if(!['raw','vtt'].includes(format))throw fail('字幕格式无效');remote.searchParams.set('format',format);}
       const headers={};for(const n of ['range','if-range','if-none-match','if-modified-since'])if(req.headers[n])headers[n]=req.headers[n];
       await new Promise((resolve,reject)=>{
         const upstream=http.request(remote,{method:req.method,headers},async response=>{

@@ -5,7 +5,7 @@ const devices=[{serial:'emulator-5580',base:'http://127.0.0.1:55817'},{serial:'e
 const call=(d,...args)=>{assert.match(d.serial,/^emulator-\d+$/);return child.execFileSync(adb,['-s',d.serial,...args],{encoding:'utf8'});};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),hash=data=>crypto.createHash('sha256').update(data).digest('hex');
 const state=async d=>(await fetch(d.base+'/api/state')).json();
-async function alive(d){for(let n=0;n<40;n++){try{const boot=await(await fetch(d.base+'/api/bootstrap?deviceId=final-release-smoke')).json();assert.equal(boot.server.version,'1.2.0');return boot;}catch{await sleep(200);}}throw Error('service did not resume');}
+async function alive(d){for(let n=0;n<40;n++){try{const boot=await(await fetch(d.base+'/api/bootstrap?deviceId=final-release-smoke')).json();assert.equal(boot.server.version,'1.4.0');return boot;}catch{await sleep(200);}}throw Error('service did not resume');}
 (async()=>{
   const a=devices[0];call(a,'shell','am','start','-n','com.linkwave.app/.MainActivity');await alive(a);const before=await state(a),ids=before.inbox.map(f=>f.id).sort();
   call(a,'shell','input','keyevent','3');const stopped=child.spawnSync(adb,['-s',a.serial,'shell','am','stopservice','-n','com.linkwave.app/.HostService'],{encoding:'utf8'});assert.match(stopped.stdout+stopped.stderr,/Service stopped/); // API30 am returns 255 even when it reports success.

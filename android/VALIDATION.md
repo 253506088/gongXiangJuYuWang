@@ -1,5 +1,22 @@
 # Android 实际验证记录
 
+## 1.4.0 共享外挂字幕与原生全屏（2026-11-19）
+
+JDK 17 / Android SDK 35 / Gradle 8.14.3 实际构建 release，版本名 `1.4.0`、版本号 `5`。安装到无窗口 `Mahjong_API30_Test` / `emulator-5580`（Android 11 / API 30，WebView 83.0.4103.120），未连接或安装到真实平板、手机。release 包的 flags 不含 `DEBUGGABLE`；本次用 `ro.debuggable=1` 的开发模拟器镜像提供的 WebView CDP 检查实际交付页面。
+
+`tests/SubtitleSupportCheck.java` 由 JDK 17 编译运行通过；`node android/verify-subtitles.cjs` 在正式 APK 上完整通过。字幕只使用测试程序编写的中文、英文和 ASS 样式 fixture，没有把真实动漫字幕源文件复制进仓库。测试视频是此前 Android 验证使用的 8 秒 H.264 baseline 样本副本。
+
+- 持久只读 SAF 共享目录内，发现同目录和 `Subs/简中` 二层字幕、`fonts` 中 TTF/TTC。视频 `[Shiniori-Raws] Sousou no Frieren S2 - 01…mp4` 自动匹配不同发布组的 `[SubsPlease] Sousou no Frieren S2 - 01.CHS.ass`；其他作品同为 01、同作品 S1 的 01 和 S2 的 02 都保持 directory 候选。ASS 内部 Title 写 episode 29，匹配仍以视频、字幕文件名为准。
+- raw 接口保留 ASS timing、Default style 和定位控制；VTT fallback 输出中文、正确毫秒时间并去掉控制块。UTF-8、UTF-16 BOM 和 GB18030 测试通过；SRT HTML 注入、无效区间和 ASS 绘图命令处理通过。超过 8MB、路径穿越和无效输出格式拒绝，HEAD 无响应体且保留文本字节数。
+- 原生容器全屏通过 Activity 的窗口 FULLSCREEN/immersive 标志、隐藏系统栏和横屏实现，完整 WebView 继续绘制视频、ASS canvas 和控件。旧 WebView 的独立视频 CustomView 只提供视频 Surface，故保留它作为单视频回退。日志分别实测 `enterPlayerFullscreen` / `exitPlayerFullscreen` 与真正的 `onShowCustomView` / `onHideCustomView`，并非只验证 CSS 类名。
+- 实屏截图 `preview-subtitles-fullscreen.png` 显示黄色中文及英文 ASS 定位样式、原生视频进度条、字幕选择、偏移和退出按钮。暂停/seek 加横竖屏尺寸变化后，canvas 有超过 50 个非透明像素；尺寸相同时重绘保留现有画布帧，避免旧 libass 的 unchanged-frame 清空问题。页脚底部 412.19 CSS 像素位于 412 CSS 像素 viewport 的舍入误差内。
+- 系统返回及退出按钮恢复原方向、系统栏与窗口策略，播放器仍打开、paused=false、error=null；视频时间从 3.08 继续到 3.36 秒。单独 video requestFullscreen 真正触发 CustomView，返回后正确恢复，服务 `/api/health` 始终可访问。销毁路径先释放全屏与回调，再销毁 WebView。
+- 自建 Node 测试主机通过 Android 同源代理返回字幕 metadata/raw/VTT；远端视频自动选中同一 ASS，离线 libass 画布渲染成功，视频文件响应 206。接收端无需本地字幕文件。
+
+`ANDROID_SMOKE_SERIALS=emulator-5580 node android/verify-direct-final-smoke.cjs` 也通过：后台停止服务后重新进入 Activity 恢复同一 serverId 与收件箱，自动收件、系统通知、系统下载 SHA-256、最终 CSS 和非 DEBUGGABLE release flags 均正常。
+
+最终 APK SHA-256：`07e2d8693f496a24c5493a99f6787d7a11c7863dfcaf0afcdb72af811e75fbd4`。`public/app.js` 与 APK 打包 assets 对应哈希为 `b441e744aa7da47454d883540c0695f7444ee65b5ee7ef367f499218f8a0b0ab`；`styles.css` 为 `f54e83a53efd22d3afa0e6d3a31dd04b5be9854d4c55802a7d4cca7724bf8bff`；`subtitles.js` 为 `f1b6cc3be0c0bcd6706859fb7a17f9507cf851d8e1a1542b4c8c9d955b8baa96`。运行结果 JSON、截图和生成 fixture 已忽略，不应提交。验证后已关闭指定模拟器与测试 Node 主机，没有留下运行中的测试服务。
+
 ## 大文件接收进度与主机断点分块（2026-11-19）
 
 针对真实平板发送 2.4 GB / 2.1 GB MKV 时长期等待、接收端无动静的问题，Android 主机间转发改用自动 bootstrap 会话、`POST /api/uploads`、最多 4 MiB 的 `PUT` 分块和 `complete`。每块落盘并 sync 后才确认 offset，断块回滚到前一确认位置，64 位 size/offset 全程保留。发送端保存 peerUploadId，回执丢失后查询已确认 offset，暂停或重启后继续原任务；transferId 保证已完成回执丢失时不重复收件。旧匿名 `peer/receive` 仍兼容，并有接收进度。

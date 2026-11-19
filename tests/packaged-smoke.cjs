@@ -45,7 +45,18 @@ const state=(base,token)=>request(base,token,'/api/state',undefined,'GET');
     const downloaded=Buffer.from(await(await fetch(base+`/api/inbox/${upload.id}/download?token=${token}`)).arrayBuffer());assert.deepEqual(downloaded,data);
     const qr=await fetch(base+'/api/qr?token='+token);assert.equal(qr.status,200);assert.equal(qr.headers.get('content-type'),'image/png');assert.ok((await qr.arrayBuffer()).byteLength>1000);
     const library=path.join(folder,'影片');await fs.mkdir(library);await fs.writeFile(path.join(library,'片段.mp4'),data);
+    const subtitleFolder=path.join(library,'字幕'),fontFolder=path.join(subtitleFolder,'Fonts');await fs.mkdir(fontFolder,{recursive:true});
+    const ass='[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.25,0:00:02.50,Default,,0,0,0,,{\\an8\\pos(960,90)}便携字幕, 中文\\N第二行\\h<&>\n';
+    const assVtt='WEBVTT\n\n00:00:01.250 --> 00:00:02.500\n便携字幕, 中文\n第二行 &lt;&amp;&gt;\n';
+    await fs.writeFile(path.join(subtitleFolder,'片段.ass'),Buffer.concat([Buffer.from([0xff,0xfe]),Buffer.from(ass,'utf16le')]));
+    await fs.writeFile(path.join(fontFolder,'测试字体.ttf'),'dummy-font-metadata');
     const share=await api('/api/shares',{path:library});
+    const subtitleQuery=(filename,format)=>'?'+new URLSearchParams({path:filename,...(format?{format}:{})});
+    const subtitles=await fetch(base+`/api/shares/${share.id}/subtitles`+subtitleQuery('片段.mp4'));assert.equal(subtitles.status,200);
+    const subtitleMetadata=await subtitles.json();assert.equal(subtitleMetadata.tracks.length,1);assert.equal(subtitleMetadata.tracks[0].path,'字幕/片段.ass');assert.equal(subtitleMetadata.tracks[0].match,'exact');assert.deepEqual(subtitleMetadata.fonts,[{name:'测试字体.ttf',path:'字幕/Fonts/测试字体.ttf'}]);
+    for(const [format,expected,type] of [['raw',ass,'plain'],['vtt',assVtt,'vtt']]){
+      const response=await fetch(base+`/api/shares/${share.id}/subtitle`+subtitleQuery('字幕/片段.ass',format));assert.equal(response.status,200);assert.match(response.headers.get('content-type'),new RegExp('^text/'+type+'; charset=utf-8'));assert.match(response.headers.get('content-security-policy'),/sandbox/);assert.equal(await response.text(),expected);
+    }
     const range=await fetch(base+`/api/shares/${share.id}/file?path=${encodeURIComponent('片段.mp4')}&token=${token}`,{headers:{Range:'bytes=4096-8191'}});assert.equal(range.status,206);assert.deepEqual(Buffer.from(await range.arrayBuffer()),data.subarray(4096,8192));
     const zip=await fetch(base+`/api/shares/${share.id}/download?token=${token}`);assert.equal(zip.status,200);assert.equal(Buffer.from(await zip.arrayBuffer()).readUInt32LE(0),0x04034b50);
     const link=await api('/api/file-links',{path:path.join(library,'片段.mp4'),expiresIn:0});assert.match(link.id,/^[a-f0-9]{32}$/);assert.ok(!link.url.includes(token));
@@ -68,6 +79,14 @@ const state=(base,token)=>request(base,token,'/api/state',undefined,'GET');
     const proxy=peerBase+`/api/peers/${boot.server.id}/shares/${share.id}/file?path=${encodeURIComponent('片段.mp4')}`;
     const proxyRange=await fetch(proxy,{headers:{Range:'bytes=4096-8191'}});assert.equal(proxyRange.status,206);assert.equal(proxyRange.headers.get('content-range'),`bytes 4096-8191/${data.length}`);assert.deepEqual(Buffer.from(await proxyRange.arrayBuffer()),data.subarray(4096,8192));
     const proxyHead=await fetch(proxy,{method:'HEAD',headers:{Range:'bytes=4096-8191'}});assert.equal(proxyHead.status,206);assert.equal(proxyHead.headers.get('content-length'),'4096');assert.equal((await proxyHead.arrayBuffer()).byteLength,0);
+    const proxySubtitlePrefix=peerBase+`/api/peers/${boot.server.id}/shares/${share.id}`;
+    const proxySubtitles=await fetch(proxySubtitlePrefix+'/subtitles'+subtitleQuery('片段.mp4'));assert.equal(proxySubtitles.status,200);assert.deepEqual(await proxySubtitles.json(),subtitleMetadata);
+    for(const [format,expected,type] of [['raw',ass,'plain'],['vtt',assVtt,'vtt']]){
+      const response=await fetch(proxySubtitlePrefix+'/subtitle'+subtitleQuery('字幕/片段.ass',format));assert.equal(response.status,200);assert.match(response.headers.get('content-type'),new RegExp('^text/'+type+'; charset=utf-8'));assert.match(response.headers.get('content-security-policy'),/sandbox/);assert.equal(await response.text(),expected);
+    }
+    const subtitleDefault=await fetch(proxySubtitlePrefix+'/subtitle'+subtitleQuery('字幕/片段.ass'));assert.equal(subtitleDefault.status,200);assert.equal(await subtitleDefault.text(),assVtt);
+    const subtitleHead=await fetch(proxySubtitlePrefix+'/subtitle'+subtitleQuery('字幕/片段.ass','raw'),{method:'HEAD'});assert.equal(subtitleHead.status,200);assert.equal(Number(subtitleHead.headers.get('content-length')),Buffer.byteLength(ass));assert.equal((await subtitleHead.arrayBuffer()).byteLength,0);
+    assert.equal((await fetch(proxySubtitlePrefix+'/subtitle'+subtitleQuery('../逃逸.ass','raw'))).status,400);assert.equal((await fetch(proxySubtitlePrefix+'/subtitle'+subtitleQuery('片段.mp4','raw'))).status,400);
     for(const [source,dest,sourceBoot,destBoot,sourceDataDir,label] of [
       [base,peerBase,boot,peerBoot,path.join(folder,'data'),'电脑到平板'],
       [peerBase,base,peerBoot,boot,path.join(folder,'peer-data'),'平板到电脑']
@@ -125,7 +144,7 @@ const state=(base,token)=>request(base,token,'/api/state',undefined,'GET');
       assert.deepEqual((await state(source,sourceBoot.token)).stats,nativeComplete.stats);assert.deepEqual((await state(dest,destBoot.token)).stats,nativeDest.stats);
       assert.equal((await request(source,sourceBoot.token,`/api/uploads/${nativeTask.id}`,undefined,'DELETE')).ok,true);assert.equal(sha256(await fs.readFile(nativeSource)),sha256(nativeBytes));
     }
-    console.log('PASS 单个 Windows BAT：两台无 Node 环境的独立 EXE、真实 UDP 双向发现及 4 MB 分块互传、原路径任务自动发送与原文件保留及无临时副本、接收下载与落盘 SHA-256、发送完成及一次记账、跨主机影音 Range/HEAD 代理、完整界面、二维码、ZIP、单文件链接与撤销。');
+    console.log('PASS 单个 Windows BAT：两台无 Node 环境的独立 EXE、真实 UDP 双向发现及 4 MB 分块互传、原路径任务自动发送与原文件保留及无临时副本、接收下载与落盘 SHA-256、发送完成及一次记账、跨主机影音 Range/HEAD 代理、匿名字幕/字体清单及 UTF-16 ASS/raw/VTT/HEAD 代理与路径拒绝、完整界面、二维码、ZIP、单文件链接与撤销。');
   }finally{
     for(const running of [peerChild,child])if(running&&running.exitCode===null){await new Promise(resolve=>{const stopper=spawn('taskkill.exe',['/PID',String(running.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});stopper.on('exit',resolve);stopper.on('error',resolve);});await new Promise(resolve=>{if(running.exitCode!==null)return resolve();running.once('exit',resolve);setTimeout(resolve,3000);});}
     await fs.rm(folder,{recursive:true,force:true,maxRetries:6,retryDelay:500});

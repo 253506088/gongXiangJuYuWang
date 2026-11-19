@@ -1,0 +1,6 @@
+# Keep shell entry points usable on Windows while normalizing project sources.
+* text=auto
+*.bat text eol=crlf
+
+# Preserve upstream distributions and license notices byte for byte.
+public/vendor/** -text -whitespace

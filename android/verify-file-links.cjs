@@ -47,10 +47,10 @@ async function pickFixture(){
   fs.mkdirSync(fixtures,{recursive:true});const fixture=path.join(fixtures,'source.bin');const sample=randomBytes(4194304+931);fs.writeFileSync(fixture,sample);
   adbCall('shell','mkdir','-p','/sdcard/LinkWaveSAF');adbCall('push',fixture,sourcePath);
   const boot=await ok('/api/bootstrap?deviceId='+randomUUID(),undefined,undefined,null);token=boot.token;
-  assert.equal(boot.server.version,'1.2.0');assert.equal(boot.admin,true);
+  assert.equal(boot.server.version,'1.4.0');assert.equal(boot.admin,true);
   const picked=await pickFixture();assert.match(picked.path,/^content:\/\//);assert.equal(picked.size,sample.length);assert.ok(picked.selectionId);
   for(const old of (await ok('/api/file-links')).links.filter(l=>l.name==='linkwave-1.1-source.bin'))await ok('/api/file-links/'+old.id,'DELETE');
-  const before=await waitState();console.log('PASS real ACTION_OPEN_DOCUMENT, transient native state, 1.2.0 bootstrap');
+  const before=await waitState();console.log('PASS real ACTION_OPEN_DOCUMENT, transient native state, 1.4.0 bootstrap');
   const permanent=await ok('/api/file-links','POST',{path:picked.path,expiresIn:0});
   const day=await ok('/api/file-links','POST',{path:picked.path});
   const hour=await ok('/api/file-links','POST',{path:picked.path,expiresIn:3600});

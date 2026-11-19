@@ -18,6 +18,7 @@ const {ensureWindowsLan}=require('./windows-lan');
 const {createSharedLibrary}=require('./shared-library');
 const {sendChunks}=require('./peer-transfer');
 const {scanLocalPaths,openLocalSource,validateLocalSource,pickSendFiles}=require('./local-files');
+const {discoverSubtitles,readSubtitle}=require('./subtitles');
 const {VERSION,CHUNK_SIZE,uuid,token,fail,asyncRoute,cleanName,safeFilename,safeRelative,resolveShared,atomicJson,localAddress,lanUrls,platform,bearer,contentDisposition,checkOrigin}=require('./util');
 
 const DEFAULT_PORT=53317;
@@ -80,7 +81,7 @@ async function createApp(options={}) {
   const library=createSharedLibrary(config,discovery,serverInfo,saveConfig,notify);
   function sessionOf(req){const value=bearer(req);const s=sessions.get(value);if(!s){
     const requestPath=req.baseUrl+req.path;
-    const guestRead=(req.method==='GET'||req.method==='HEAD')&&(requestPath==='/api/state'||/^\/api\/shares\/[^/]+\/(browse|file|download)$/.test(requestPath)||/^\/api\/inbox\/[^/]+\/download$/.test(requestPath));
+    const guestRead=(req.method==='GET'||req.method==='HEAD')&&(requestPath==='/api/state'||/^\/api\/shares\/[^/]+\/(browse|file|download|subtitles|subtitle)$/.test(requestPath)||/^\/api\/inbox\/[^/]+\/download$/.test(requestPath));
     if(!guestRead)throw fail('连接已断开，请刷新页面自动重连',401);req.session={id:'guest',name:'局域网设备'};req.admin=false;return req.session;
   }req.session=s;req.admin=!!s.admin&&localAdminRequest(req);return s;}
   function auth(req,res,next){try{sessionOf(req);next();}catch(e){next(e);}}
@@ -262,6 +263,8 @@ async function createApp(options={}) {
   }));
   app.delete('/api/shares/:id',admin,asyncRoute(async(req,res)=>{getShare(req);config.shares=config.shares.filter(sh=>sh.id!==req.params.id);await saveConfig();notify();res.json({ok:true});}));
   app.get('/api/shares/:id/browse',asyncRoute(async(req,res)=>{const sh=getShare(req),relative=safeRelative(req.query.path||'');res.json(await browse(sh.path,relative,sh));}));
+  app.get('/api/shares/:id/subtitles',asyncRoute(async(req,res)=>{const sh=getShare(req);res.json(await discoverSubtitles(sh.path,req.query.path||''));}));
+  app.get('/api/shares/:id/subtitle',asyncRoute(async(req,res)=>{const sh=getShare(req),format=req.query.format||'vtt';if(!['raw','vtt'].includes(format))throw fail('字幕输出格式无效');res.set({'Content-Type':format==='raw'?'text/plain; charset=utf-8':'text/vtt; charset=utf-8','Content-Security-Policy':"sandbox; default-src 'none'"}).send(await readSubtitle(sh.path,req.query.path||'',format));}));
   app.get('/api/shares/:id/file',asyncRoute(async(req,res)=>{const sh=getShare(req),target=await resolveShared(sh.path,req.query.path||'');await serveFile(req,res,target.filename,path.basename(target.filename),false);}));
   app.get('/api/shares/:id/download',asyncRoute(async(req,res)=>{const sh=getShare(req),relative=safeRelative(req.query.path||'');const target=await resolveShared(sh.path,relative);if(target.stat.isDirectory())await streamZip(req,res,sh.path,relative,path.basename(target.filename)||sh.name);else await serveFile(req,res,target.filename,path.basename(target.filename),true);}));
   app.post('/api/pick-folder',admin,asyncRoute(async(req,res)=>{
@@ -294,7 +297,7 @@ async function createApp(options={}) {
   }));
   app.use('/api',(req,res)=>res.status(404).json({error:'接口不存在'}));
   const publicDir=path.join(__dirname,'..','public');
-  app.use(express.static(publicDir,{etag:true,maxAge:0,setHeaders(res,filename){res.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws:; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");if(filename.endsWith('sw.js'))res.set('Cache-Control','no-cache');}}));
+  app.use(express.static(publicDir,{etag:true,maxAge:0,setHeaders(res,filename){res.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: blob:; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");if(filename.endsWith('sw.js'))res.set('Cache-Control','no-cache');}}));
   app.get('/',(req,res)=>res.sendFile(path.join(publicDir,'index.html')));
   app.use((err,req,res,next)=>{
     if(res.headersSent){if(!res.destroyed)res.destroy(err);return;}

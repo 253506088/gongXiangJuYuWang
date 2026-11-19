@@ -1,5 +1,13 @@
 # LinkWave protocol v1 / app 1.2
 
+## 1.4 共享字幕与全屏
+
+本机与Android统一 `GET /api/shares/:id/subtitles?path=videoRelativePath` 返回 `{tracks:[{name,path,format:'ass'|'ssa'|'srt'|'vtt',label,match:'exact'|'episode'|'directory'}],fonts:[{name,path}]}`。读取同视频目录与子目录 `Subs`、`Subtitles`、`字幕`（只有限层1或2），字体扫描本目录及 `fonts`、`Fonts`、`字体` 子目录 ttf/otf。首先按视频basename匹配语言suffix字幕，其次匹配唯一的集号并去组名/hash/resolution及codec干扰（S2 - 01 vs S2 - 01相同集），避免不同剧集仅同01错误匹配，若没有匹配显示可选目录字幕但不自动选。tracks顺序exact优先episode然后directory、简中优先；API文件路径通过原share安全解析读取，不直接透露绝对path。`GET /api/shares/:id/subtitle?path=subtitleRelativePath&format=vtt` 将SRT/ASS/SSA安全转换成UTF8WebVTT，ASS去特效文本兼容基础track；`format=raw`提供原文UTF8（ASS renderer保留原timing/styles）。自动处理UTF8 BOM/UTF16 BOM/GB18030编码。字幕限8MB。字体资源可用既有file端点。peer同源代理action增加subtitles/subtitle，允许path与format且Rangefile保持。
+
+前端视频打开即查询该接口，字幕选择下拉有关闭/共享字幕label/本地加载选项。默认exact/episode最佳匹配自动启用并显示选中，不要求接收端有字幕文件。VTT/SRT以浏览器track；ASS/SSA使用离线打包libass WASM renderer（可降级转换VTT，但降级告知）支持字体/位置/样式。本地加载接受ass/ssa/srt/vtt而非仅vtt。字幕与画面在同一全屏容器内，不随原生video单元素全屏丢overlay。
+
+全屏按钮显式 `requestFullscreen` 在播放器容器，fallbackwebkit request；无法系统fullscreen用可退出的铺屏模式，Esc/关闭正确恢复。Android WebChromeClient onShowCustomView/onHideCustomView 接管原生视频全屏，包含back/landscape/systembarsrestore/destroy。前端全屏优先容器(ASScanvas在一起)Android实nativefallback支持。退出全屏不能关闭服务。播放器Controls字幕选择全屏时可用。
+
 ## 1.3.0 本机原文件直接发送（最新规则）
 
 Node Windows bootstrap `capabilities.localFiles:true`（只在本机 admin 页面使用）。本机“选择文件”调用 `POST /api/pick-send-files {}` -> `{paths:[absolute file paths]}`，多选原文件；“选择文件夹”仍 POST pick-folder -> `{path}`。创建发送任务 `POST /api/local-transfers {paths:[absolute files or directories],targetId:'host:uuid'|'browserUuid'|'server'}` admin -> `{transfers:[{id,name,size,status:'queued',targetId,to,relativePath,localSource:true}],skipped:[{path,error}]}`。只读取文件元数据，保存原绝对路径、大小、mtime、inode，不复制、不读取整个文件、不上传本机；多个目录递归保留目录结构，跳过越界/循环symlink。任务自动排队真正发送，UI无需POST complete启动。原文件直接按4MB读取发送到远端/APIuploads断点。发送任何暂停/删除任务不会unlink/rename/truncate原文件。重试源文件的身份/大小/mtime变化时明确报错要求重新选择，不发送被替换或混合的文件。

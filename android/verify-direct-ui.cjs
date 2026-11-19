@@ -15,7 +15,7 @@ async function until(probe,label,timeout=12000){const end=Date.now()+timeout;whi
 (async()=>{
   let ws;
   try{
-    for(const d of [a,b]){d.boot=await api(d,'/api/bootstrap?deviceId='+randomUUID());d.token=d.boot.token;assert.equal(d.boot.server.version,'1.2.0');}
+    for(const d of [a,b]){d.boot=await api(d,'/api/bootstrap?deviceId='+randomUUID());d.token=d.boot.token;assert.equal(d.boot.server.version,'1.4.0');}
     adbCall(a,'reverse','tcp:55819','tcp:55819');adbCall(b,'reverse','tcp:55817','tcp:55817');await api(a,'/api/peers/connect','POST',{url:'http://127.0.0.1:55819'});await api(b,'/api/peers/connect','POST',{url:'http://127.0.0.1:55817'});
     const pid=adbCall(b,'shell','pidof','com.linkwave.app').trim();assert.match(pid,/^\d+$/);adbCall(b,'forward','tcp:55823','localabstract:webview_devtools_remote_'+pid);
     const pages=await(await fetch('http://127.0.0.1:55823/json/list')).json(),page=pages.find(p=>p.type==='page'&&p.url.startsWith('http://127.0.0.1:'));assert.ok(page);

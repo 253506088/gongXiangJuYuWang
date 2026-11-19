@@ -9,6 +9,7 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/subtitles.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -92,9 +93,9 @@
 
 
 <div id="loading-screen" class="loading-screen"><span class="brand-mark"><svg class="icon"><use href="#i-wave"/></svg></span><div class="loader"></div><span>正在连接你的局域网</span><p id="loading-error" hidden></p><button class="button secondary" id="loading-retry" hidden>重新连接</button></div>
-<input id="files-input" type="file" multiple hidden><input id="folder-input" type="file" webkitdirectory multiple hidden><input id="subtitle-input" type="file" accept=".vtt,text/vtt" hidden>
+<input id="files-input" type="file" multiple hidden><input id="folder-input" type="file" webkitdirectory multiple hidden><input id="subtitle-input" type="file" accept=".ass,.ssa,.srt,.vtt,text/vtt,application/x-subrip,text/x-ssa" hidden>
 <dialog id="modal" class="modal"><div class="modal-header"><h2 id="modal-title"></h2><button class="icon-button" id="modal-close" aria-label="关闭"><svg class="icon"><use href="#i-x"/></svg></button></div><div id="modal-body"></div></dialog>
-<dialog id="player-modal" class="player-modal"><div class="player-header"><div><span class="player-kicker">LINKWAVE PLAYER</span><h2 id="player-title"></h2></div><button class="icon-button" id="player-close" aria-label="关闭播放器"><svg class="icon"><use href="#i-x"/></svg></button></div><div id="player-content" class="player-content"></div><div id="player-error" class="player-error" hidden></div><div class="player-footer"><span id="player-detail"></span><div><button class="button secondary small" id="subtitle-button"><svg class="icon small"><use href="#i-file"/></svg>加载 VTT 字幕</button><a class="button secondary small" id="player-download" download><svg class="icon small"><use href="#i-download"/></svg>下载原文件</a></div></div></dialog>
+<dialog id="player-modal" class="player-modal" aria-labelledby="player-title"><div class="player-header"><div><span class="player-kicker">LINKWAVE PLAYER</span><h2 id="player-title"></h2></div><button class="icon-button" id="player-close" aria-label="关闭播放器"><svg class="icon"><use href="#i-x"/></svg></button></div><div id="player-shell" class="player-shell"><div id="player-content" class="player-content"></div><div id="player-error" class="player-error" hidden></div><div class="player-footer"><div class="player-info"><span id="player-detail"></span><span id="subtitle-status" class="subtitle-status" role="status" aria-live="polite" hidden></span></div><div class="player-tools"><div id="subtitle-controls" class="subtitle-controls"><label class="subtitle-picker">字幕<select id="subtitle-select" aria-label="选择字幕"><option value="off">关闭字幕</option><option value="load">加载本地字幕…</option></select></label><div id="subtitle-timing" class="subtitle-timing" hidden><button type="button" id="subtitle-earlier" class="icon-button" aria-label="字幕提前 0.5 秒" title="字幕提前 0.5 秒">−</button><output id="subtitle-offset" aria-label="字幕延迟">0.0 秒</output><button type="button" id="subtitle-later" class="icon-button" aria-label="字幕延后 0.5 秒" title="字幕延后 0.5 秒">+</button></div></div><button class="button secondary small" id="player-fullscreen" type="button" aria-label="进入全屏" aria-pressed="false">进入全屏</button><a class="button secondary small" id="player-download" download><svg class="icon small"><use href="#i-download"/></svg>下载原文件</a></div></div></div></dialog>
 <div id="toast-region" class="toast-region" aria-live="polite"></div>
 </body>
 </html>

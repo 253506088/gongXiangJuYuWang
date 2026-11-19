@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 final class HostState {
+    static final String VERSION = "1.4.0";
     final Context context;
     final SharedPreferences prefs;
     final String id;
@@ -62,7 +63,7 @@ final class HostState {
     }
     static String now() { return java.time.Instant.now().toString(); }
     static String newToken() { return UUID.randomUUID().toString().replace("-","")+UUID.randomUUID().toString().replace("-",""); }
-    JSONObject server() {return obj("id",id,"name",name,"platform","android","version","1.2.0","port",port);}
+    JSONObject server() {return obj("id",id,"name",name,"platform","android","version",VERSION,"port",port);}
     JSONArray urls() {
         JSONArray a = new JSONArray();List<Map.Entry<Integer,String>> addresses=new ArrayList<>();
         try {Enumeration<NetworkInterface> all=NetworkInterface.getNetworkInterfaces(); while(all.hasMoreElements()) {
@@ -214,5 +215,48 @@ final class HostState {
     List<Doc> children(Uri tree,Doc parent)throws Exception{List<Doc>a=new ArrayList<>();Uri u=DocumentsContract.buildChildDocumentsUriUsingTree(tree,parent.id);try(Cursor c=context.getContentResolver().query(u,new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED},null,null,null)){if(c==null)throw new IOException("无法读取此共享文件夹");while(c.moveToNext())a.add(readDoc(c,tree));}a.sort((x,y)->x.directory!=y.directory?(x.directory?-1:1):x.name.compareToIgnoreCase(y.name));return a;}
     Doc resolve(JSONObject share,String path)throws Exception{Uri tree=Uri.parse(share.getString("uri"));Doc d=document(tree,DocumentsContract.getTreeDocumentId(tree));String p=cleanPath(path);if(p.isEmpty())return d;for(String segment:p.split("/")){if(segment.isEmpty())continue;if(!d.directory)throw new FileNotFoundException("目录不存在");Doc found=null;for(Doc candidate:children(tree,d))if(candidate.name.equals(segment)){found=candidate;break;}if(found==null)throw new FileNotFoundException("文件不存在");d=found;}return d;}
     JSONObject browse(JSONObject share,String path)throws Exception{String p=cleanPath(path);Doc d=resolve(share,p);if(!d.directory)throw new IllegalArgumentException("这不是文件夹");JSONArray entries=new JSONArray();for(Doc child:children(Uri.parse(share.getString("uri")),d)){String childPath=p.isEmpty()?child.name:p+"/"+child.name;entries.put(obj("name",child.name,"path",childPath,"type",child.directory?"folder":"file","size",Math.max(0,child.size),"modifiedAt",java.time.Instant.ofEpochMilli(child.modified).toString(),"mime",child.mime));}String parent=p.isEmpty()?null:(p.contains("/")?p.substring(0,p.lastIndexOf('/')):"");return obj("share",obj("id",share.optString("id"),"name",share.optString("name")),"path",p,"parent",parent==null?JSONObject.NULL:parent,"entries",entries,"total",entries.length());}
-    static String mime(String name){String ext=MimeTypeMap.getFileExtensionFromUrl(name);String mime=MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase(Locale.ROOT));if(mime==null){if(name.endsWith(".mjs")||name.endsWith(".js"))return "application/javascript";if(name.endsWith(".webmanifest"))return "application/manifest+json";if(name.endsWith(".vtt"))return "text/vtt";if(name.endsWith(".svg"))return "image/svg+xml";return "application/octet-stream";}return mime;}
+    JSONObject subtitles(JSONObject share,String path)throws Exception {
+        String videoPath=cleanPath(path);Doc video=resolve(share,videoPath);if(video.directory)throw new IllegalArgumentException("请指定共享视频文件");
+        String parent=videoPath.contains("/")?videoPath.substring(0,videoPath.lastIndexOf('/')):"";
+        Uri tree=Uri.parse(share.getString("uri"));Doc directory=resolve(share,parent);
+        List<JSONObject> tracks=new ArrayList<>(),fonts=new ArrayList<>();Set<String> visited=new HashSet<>();
+        scanSubtitles(tree,directory,parent,video.name,0,false,false,tracks,fonts,visited);
+        tracks.sort((a,b)->{int order=matchRank(a.optString("match"))-matchRank(b.optString("match"));if(order==0)order=SubtitleSupport.languageRank(a.optString("name"))-SubtitleSupport.languageRank(b.optString("name"));return order==0?a.optString("path").compareToIgnoreCase(b.optString("path")):order;});
+        fonts.sort((a,b)->a.optString("path").compareToIgnoreCase(b.optString("path")));
+        JSONArray trackArray=new JSONArray(),fontArray=new JSONArray();for(JSONObject track:tracks)trackArray.put(track);for(JSONObject font:fonts)fontArray.put(font);
+        return obj("tracks",trackArray,"fonts",fontArray);
+    }
+    private static int matchRank(String match){return match.equals("exact")?0:match.equals("episode")?1:2;}
+    private void scanSubtitles(Uri tree,Doc directory,String path,String videoName,int depth,boolean subtitleTree,boolean fontTree,List<JSONObject> tracks,List<JSONObject> fonts,Set<String> visited)throws Exception {
+        if(!visited.add(directory.id))return;
+        for(Doc child:children(tree,directory)){
+            String relative=path.isEmpty()?child.name:path+"/"+child.name;
+            if(child.directory){
+                boolean subs=SubtitleSupport.subtitleDirectory(child.name),font=SubtitleSupport.fontDirectory(child.name);
+                // Root: named directories only. Inside Subs, accept one extra
+                // language/release folder; never walk the shared collection.
+                if(depth<2&&(subs||font||subtitleTree||fontTree))scanSubtitles(tree,child,relative,videoName,depth+1,subtitleTree||subs,fontTree||font,tracks,fonts,visited);
+                continue;
+            }
+            if(!fontTree&&SubtitleSupport.isSubtitle(child.name)){
+                if(child.size>SubtitleSupport.MAX_BYTES)continue;
+                if(tracks.size()>=2048)throw new IllegalArgumentException("此目录字幕过多，请将字幕按视频分目录");
+                tracks.add(obj("name",child.name,"path",relative,"format",SubtitleSupport.extension(child.name),"label",SubtitleSupport.label(child.name),"match",SubtitleSupport.match(videoName,child.name)));
+            }
+            if(SubtitleSupport.isFont(child.name)){
+                if(child.size>SubtitleSupport.MAX_FONT_BYTES)continue;
+                if(fonts.size()>=64)continue;
+                fonts.add(obj("name",child.name,"path",relative));
+            }
+        }
+    }
+    String subtitleText(JSONObject share,String path,String format)throws Exception {
+        String relative=cleanPath(path);Doc subtitle=resolve(share,relative);
+        if(subtitle.directory||!SubtitleSupport.isSubtitle(subtitle.name))throw new IllegalArgumentException("请选择 ASS、SSA、SRT 或 VTT 字幕文件");
+        if(!format.equals("raw")&&!format.equals("vtt"))throw new IllegalArgumentException("字幕格式只能是 raw 或 vtt");
+        if(subtitle.size>SubtitleSupport.MAX_BYTES)throw new IllegalArgumentException("字幕文件超过 8MB 限制");
+        InputStream input=context.getContentResolver().openInputStream(subtitle.uri);if(input==null)throw new FileNotFoundException("字幕文件无法读取");
+        String text;try{text=SubtitleSupport.decode(SubtitleSupport.read(input,subtitle.size));}catch(java.nio.charset.CharacterCodingException e){throw new IllegalArgumentException("无法识别字幕编码，请使用 UTF-8、UTF-16 或 GB18030");}return format.equals("raw")?text:SubtitleSupport.toVtt(text,SubtitleSupport.extension(subtitle.name));
+    }
+    static String mime(String name){String ext=SubtitleSupport.extension(name);if(ext.equals("wasm"))return "application/wasm";if(ext.equals("ttf"))return "font/ttf";if(ext.equals("otf"))return "font/otf";if(ext.equals("ttc"))return "font/collection";String mime=MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);if(mime==null){if(name.endsWith(".mjs")||name.endsWith(".js"))return "application/javascript";if(name.endsWith(".webmanifest"))return "application/manifest+json";if(name.endsWith(".vtt"))return "text/vtt";if(name.endsWith(".svg"))return "image/svg+xml";return "application/octet-stream";}return mime;}
 }
